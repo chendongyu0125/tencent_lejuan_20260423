@@ -94,7 +94,8 @@ class LejuandetailsSpider(scrapy.Spider):
     def start_requests(self):
 
         # get all the projects
-        projects = pd.read_csv("lejuan_snapshot.csv")[:1000] # 先测试前100个项目，后续可以去掉这个限制
+        # projects = pd.read_csv("lejuan_snapshot.csv")[:1000] # 先测试前100个项目，后续可以去掉这个限制
+        projects = pd.read_csv("lejuan_snapshot.csv")
 
         # statistics of the project numbers
         total = 0

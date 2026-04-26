@@ -59,7 +59,7 @@ class DetailImagesPipeline(ImagesPipeline):
         project_no = str(request.meta['project_no'])
 
         # get the image file name
-        if request.url.endswith('/500'):            
+        if request.url.endswith(('/500', '/')):            
             image_file_name = f"{request.url.split('/')[-2]}.png"
         else:            
             image_file_name = request.url.split('/')[-1]
