@@ -12,6 +12,8 @@ from itemadapter import ItemAdapter
 from scrapy.pipelines.images import ImagesPipeline
 from scrapy import Request
 
+from tencent_lejuan_20260423.spiders.lejuandetails import get_payload_projectinfo, get_payload_projectdata, load_crawled_projects, save_crawled_project, CRAWLED_PROJECTS_FILE
+
 class SnapshotImagesPipeline(ImagesPipeline):
     '''
     download snapshot images, and save them in the folder of "images"
@@ -43,7 +45,12 @@ class DetailImagesPipeline(ImagesPipeline):
     def get_media_requests(self, item, info):
         project_no = item.get("project_no") # project_no is already a string, no need to get the first element
 
+        # 过滤无效URL
         for image_url in item.get('image_urls', []):
+            if not image_url or not image_url.startswith(('http://', 'https://', '//')):
+                logging.warning(f"Invalid image URL skipped: {image_url} for project {project_no}")
+                logging.warning(f"Project {project_no} has invalid image URL: {image_url}")
+                continue
             yield(
                 Request(image_url, meta = {'project_no': project_no})
             )
@@ -60,6 +67,19 @@ class DetailImagesPipeline(ImagesPipeline):
 
         image_path = f"details/{project_no[-2:]}/{project_no}/{image_file_name}"
         return image_path
+    
+    # trigger when the image is download 
+    def item_completed(self, results, item, info):
+        # check if the image is downloaded successfully
+        image_results = [x for x in results if x[0]]
+        if not image_results:
+            logging.warning(f"No images were downloaded for project {item.get('project_no')}.")
+            return item 
+        else:
+            project_no = item.get('project_no')
+            save_crawled_project(project_no, CRAWLED_PROJECTS_FILE)
+            logging.info(f"{len(image_results)} images were downloaded for project {item.get('project_no')}.")
+            return item
 
 
 

@@ -11,8 +11,49 @@ import socket
 from datetime import datetime
 from bs4 import BeautifulSoup
 import re
+import os 
 
+# to record the crawled project numbers, and avoid crawling the same project again
+CRAWLED_PROJECTS_FILE = "crawled_projects_with_details.txt"
 # get all the detail information of projects
+
+def load_crawled_projects(file_path):
+    '''
+    load the crawled project numbers from the file, and return a set of crawled project numbers
+    '''
+
+    if not os.path.exists(file_path):
+        return set()
+    
+    with open(file_path, 'r') as f:
+        crawled_projects = set(line.strip() for line in f)
+    return crawled_projects
+
+def save_crawled_project(project_no, file_path):
+    '''
+    save the crawled project number into the file
+    '''
+    crawled = load_crawled_projects(file_path)
+    if project_no in crawled:
+        logging.info(f"Project {project_no} has already been crawled.")
+        return  
+    with open(file_path, 'a') as f:
+        f.write(project_no + '\n')
+
+
+def get_payload_projectinfo(project_no):
+    payload = {
+            "mini": False,
+            "all": True,
+            "project_no": project_no
+        }
+    return payload 
+
+def get_payload_projectdata(project_no):
+    payload = {
+        "pid": str(project_no)
+    }
+    return payload
 
 
 class LejuandetailsSpider(scrapy.Spider):
@@ -38,30 +79,48 @@ class LejuandetailsSpider(scrapy.Spider):
     apiurl_projectinfo = "https://ssl.gongyi.qq.com/gygw-app/ed/project_center_query/GetProjectInfoForC"
     apiurl_projectdata = "https://ssl.gongyi.qq.com/gygw-app/ed/gdata.query/GetProjData"
 
+    def __init__(self, name = None, **kwargs):
+        super().__init__(name, **kwargs)
+        self.crawled_projects = load_crawled_projects(CRAWLED_PROJECTS_FILE)
+        logging.info(f"Loaded {len(self.crawled_projects)} crawled projects from {CRAWLED_PROJECTS_FILE}")
 
-
-    def get_payload_projectinfo(self, project_no):
-        payload = {
-                "mini": False,
-                "all": True,
-                "project_no": project_no
-            }
-        return payload 
     
-    def get_payload_projectdata(self, project_no):
-        payload = {
-            "pid": str(project_no)
-        }
+
+    
+
+
 
 
     def start_requests(self):
 
         # get all the projects
-        projects = pd.read_csv("lejuan_snapshot.csv")[:10]
+        projects = pd.read_csv("lejuan_snapshot.csv")[:1000] # 先测试前100个项目，后续可以去掉这个限制
+
+        # statistics of the project numbers
+        total = 0
+        skipped = 0
+        crawled = 0
+
         for project_no in projects['project_no']:
             project_no = str(project_no)
-            payload_info = self.get_payload_projectinfo(project_no)
-            payload_data = self.get_payload_projectdata(project_no)
+            total += 1
+
+            if project_no in self.crawled_projects:
+                logging.info(f"Project {project_no} has already been crawled. Skipping.")
+                skipped += 1
+                continue
+            
+            # for uncrawled project, we will crawl the details of the project, and save the project number into the file
+            crawled += 1
+            
+            
+            payload_info = get_payload_projectinfo(project_no)
+            payload_data = get_payload_projectdata(project_no)
+
+            meta = {
+                'payload_info': payload_info,
+                'project_no': project_no
+            }
             
             # Get data from Project Inof
             yield Request(
@@ -69,10 +128,15 @@ class LejuandetailsSpider(scrapy.Spider):
                 url=self.apiurl_projectinfo,
                 method='POST',
                 body=json.dumps(payload_info),
-                meta={'payload':payload_info},
+                meta=meta,
                 callback=self.parse_info,
                 headers=self.headers 
             )
+        
+        # statistics of the project numbers
+        logging.info(f"Total projects: {total}")
+        logging.info(f"Skipped projects: {skipped}")
+        logging.info(f"Crawled projects: {crawled}")
 
             # Get data from ProjectData
             # yield Request(
@@ -83,6 +147,9 @@ class LejuandetailsSpider(scrapy.Spider):
             #     callback=self.parse_data,
             #     meta={'payload':payload_data}
             # )
+
+
+
 
 
 
@@ -102,6 +169,20 @@ class LejuandetailsSpider(scrapy.Spider):
 
         all_image_urls = set() # 使用集合去重
 
+        # added: 补全URL协议的工具函数
+        def fix_url_scheme(url):
+            if not url:
+                return None 
+            
+            if url.startswith('//'):
+                return 'https:' + url
+            elif not url.startswith(('http://', 'https://')):
+                return 'https://' + url
+            
+            return url
+                
+
+
         # 1. 提取直接字段中的图片链接
         direct_fields = [
             base_data.get('listImg'),
@@ -112,14 +193,23 @@ class LejuandetailsSpider(scrapy.Spider):
         ]
         
         for url in direct_fields:
-            if url:
-                all_image_urls.add(url)
+            fixed_url = fix_url_scheme(url)
+            if fixed_url:
+                all_image_urls.add(fixed_url)
 
         # 提取列表中的图片链接
         for img in base_data.get('img_list', []):
-            all_image_urls.add(img)
-        for img in base_data.get('img_mob_list', []):
-            all_image_urls.add(img)
+            fixed_url = fix_url_scheme(img)
+            if fixed_url:
+                all_image_urls.add(fixed_url)
+
+        for img in detail_data.get('img_mob_list', []):
+            fixed_url = fix_url_scheme(img)
+            if fixed_url:
+                all_image_urls.add(fixed_url)
+
+        
+
 
         # 2. 使用正则表达式提取富文本（HTML）中的图片链接
         # 需要扫描包含HTML的字段，例如项目介绍、预算等
@@ -140,9 +230,10 @@ class LejuandetailsSpider(scrapy.Spider):
                 found_urls = img_pattern.findall(content)
                 for url in found_urls:
                     # 修复以 // 开头的无协议链接 (例如预算图片)
-                    if url.startswith('//'):
-                        url = 'https:' + url
-                    all_image_urls.add(url)
+                    fixed_url = fix_url_scheme(url)
+                    if fixed_url:
+                        all_image_urls.add(fixed_url)
+
         return all_image_urls
 
     def parse_info(self, response):
@@ -155,8 +246,16 @@ class LejuandetailsSpider(scrapy.Spider):
             if not json_data:
                 return 
             
+            # get project_no from meta
+            project_no = response.meta.get('project_no')
+            if not project_no:
+                logging.error("No project_no found in response meta. Skipping this item.")
+                return
             
             data = json_data.get("data")
+            if not data:
+                logging.error(f"No 'data' field found in JSON response for project {project_no}. Skipping this item.")
+                return
             # logging.debug(f"data = {data}")
 
             # add all the values for each key in the section of "data" into the object of "item"
@@ -167,12 +266,16 @@ class LejuandetailsSpider(scrapy.Spider):
             item['server'] = socket.gethostname()
             item['collection_time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             item['category'] = data.get('base').get('cateName')
-            item['project_no'] = data.get('detail').get('id')
+            item['project_no'] = project_no
 
             # to crawl all the images in the detailed page
             all_image_urls = self.extract_image_urls(json_data)
-            logging.debug(f"all_image_urls = {all_image_urls}")
-            item['image_urls'] = list(all_image_urls)            
+            logging.debug(f"project_no = {project_no}, total_image_urls = {len(all_image_urls)}, image_urls = {all_image_urls}")
+            item['image_urls'] = list(all_image_urls)   
+
+            # save the crawled project number into the file
+            # save_crawled_project(project_no, CRAWLED_PROJECTS_FILE)
+            # logging.info(f"Project {project_no} has been crawled and saved. Total image URLs: {len(all_image_urls)}")   
 
             yield item
 
@@ -185,7 +288,8 @@ class LejuandetailsSpider(scrapy.Spider):
 
             
         except json.JSONDecodeError:
-            logging.error("响应内容不是有效的 JSON 格式")
+            project_no = response.meta.get('project_no', 'Unknown')
+            logging.error(f"Project {project_no} 响应内容不是有效的 JSON 格式")
             logging.error(f"响应内容预览: {response.text[:500]}")   
             
 
