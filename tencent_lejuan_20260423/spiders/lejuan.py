@@ -10,6 +10,10 @@ from datetime import datetime
 import math
 import time
 import image
+CRAWLED_SNAPSHOTS_FILE = "crawled_projects_with_snapshots.txt"
+
+
+
 
 class LejuanSpider(scrapy.Spider):
     '''
@@ -35,6 +39,7 @@ class LejuanSpider(scrapy.Spider):
             'tencent_lejuan_20260423.pipelines.SnapshotImagesPipeline': 300,
         }
     }
+
 
     def generate_payload(self, project_first_code, page=0):
             '''
@@ -68,6 +73,7 @@ class LejuanSpider(scrapy.Spider):
         # 注意：使用 body=json.dumps(payload) 将字典转换为 JSON 字符串
         for project_first_code in self.project_first_codes:
             payload = self.generate_payload(project_first_code, page=0)
+            
 
             yield scrapy.Request(
                 url=self.api_url,

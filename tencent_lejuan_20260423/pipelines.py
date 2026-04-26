@@ -13,6 +13,7 @@ from scrapy.pipelines.images import ImagesPipeline
 from scrapy import Request
 
 from tencent_lejuan_20260423.spiders.lejuandetails import get_payload_projectinfo, get_payload_projectdata, load_crawled_projects, save_crawled_project, CRAWLED_PROJECTS_FILE
+from tencent_lejuan_20260423.spiders.lejuan import CRAWLED_SNAPSHOTS_FILE
 
 class SnapshotImagesPipeline(ImagesPipeline):
     '''
@@ -35,6 +36,8 @@ class SnapshotImagesPipeline(ImagesPipeline):
         # construct the image file path, we save the image in the folder of "images/cover_images", and we use the last two digits of the project_no as the subfolder name, and we use the project_no as the image file name, and we use the original image extension as the image file extension       
         image_path = f"cover_images/{project_no[-2:]}/{project_no}/{project_no}.{image_extension}"
         return image_path
+    
+
     
 
         
