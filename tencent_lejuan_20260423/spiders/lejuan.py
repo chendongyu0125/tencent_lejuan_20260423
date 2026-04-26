@@ -29,6 +29,12 @@ class LejuanSpider(scrapy.Spider):
             "Referer": "https://gongyi.qq.com/",
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
+    
+    custom_settings = {
+        'ITEM_PIPELINES': {
+            'tencent_lejuan_20260423.pipelines.SnapshotImagesPipeline': 300,
+        }
+    }
 
     def generate_payload(self, project_first_code, page=0):
             '''
@@ -132,28 +138,38 @@ class LejuanSpider(scrapy.Spider):
 
                 # load item
                 item = SnapshotItem()
-                l = ItemLoader(item=item)
-                for field in addr.keys():
-                    l.add_value(field, str(addr.get(field)))
+                l = ItemLoader(item=item, response=response) # 建议传入 response，方便后续可能的 XPath/CSS 提取
 
-                for field in donate.keys():
-                    l.add_value(field, str(donate.get(field)))
-                
-                for field in info.keys():
-                    l.add_value(field, str(info.get(field)))
+                # 1. 批量加载字典数据 (使用 items() 更高效)
+                for field, value in addr.items():
+                    if value is not None:
+                        l.add_value(field, str(value))
 
-                l.add_value('category', response.meta['payload']['project_first_code'])
+                for field, value in donate.items():
+                    if value is not None:
+                        l.add_value(field, str(value))
+                        
+                for field, value in info.items():
+                    if value is not None:
+                        l.add_value(field, str(value))
+
+                # 2. 单独加载其他上下文数据
+                l.add_value('category', str(response.meta['payload'].get('project_first_code', '')))
                 l.add_value('server', socket.gethostname())
                 l.add_value('collection_time', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                l.add_value('page', str(response.meta['payload']['page']))
-                l.add_value('position',str(position))
-                position = position + 1
+                l.add_value('page', str(response.meta['payload'].get('page', '')))
+                l.add_value('position', str(position))
+                position += 1
 
-                # download snapshot image of each project
-                image_url = info.get('phone_list_image')                
-                project_no = str(info.get('project_no'))
-                l.add_value('image_urls', [image_url])               
+                # 3. 处理图片链接（必须判空）
+                image_url = info.get('phone_list_image')
+                if image_url:
+                    # 如果之前的 url 是以 // 开头（如 //img.example.com/1.jpg），可以在这里修复
+                    if image_url.startswith('//'):
+                        image_url = 'https:' + image_url
+                    l.add_value('image_urls', image_url) # ItemLoader 会自动将其处理为 iterable，传字符串即可
 
+                # 4. 正确产出 Item
                 yield l.load_item()
                 
                 

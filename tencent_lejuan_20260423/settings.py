@@ -58,13 +58,14 @@ DOWNLOAD_DELAY = 1
 
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
-ITEM_PIPELINES = {
-   "tencent_lejuan_20260423.pipelines.TencentLejuan20260423Pipeline": 300,
-   # "scrapy.pipelines.images.ImagesPipeline": 1
-   "tencent_lejuan_20260423.pipelines.CustomImagesPipeline":1
-}
+# ITEM_PIPELINES = {
+#    "tencent_lejuan_20260423.pipelines.TencentLejuan20260423Pipeline": 300,
+#    # "scrapy.pipelines.images.ImagesPipeline": 1
+#    "tencent_lejuan_20260423.pipelines.CustomImagesPipeline":1
+# }
 
 IMAGES_STORE = 'images'
+IMAGES_EXPIRES = 90
 
 
 # Enable and configure the AutoThrottle extension (disabled by default)
