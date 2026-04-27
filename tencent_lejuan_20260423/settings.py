@@ -19,7 +19,7 @@ ADDONS = {}
 #USER_AGENT = "tencent_lejuan_20260423 (+http://www.yourdomain.com)"
 
 # Obey robots.txt rules
-ROBOTSTXT_OBEY = True
+ROBOTSTXT_OBEY = False
 
 # Concurrency and throttling settings
 #CONCURRENT_REQUESTS = 16
@@ -92,3 +92,9 @@ HTTPCACHE_ENABLED = True
 
 # Set settings whose default value is deprecated to a future-proof value
 FEED_EXPORT_ENCODING = "utf-8"
+
+# to mark the crawled projects
+CRAWLED_SNAPSHOTS_FILE = "crawled_projects_with_snapshots.txt"
+# to record the crawled project numbers, and avoid crawling the same project again
+CRAWLED_PROJECTS_FILE  = "crawled_projects_with_details.txt"
+

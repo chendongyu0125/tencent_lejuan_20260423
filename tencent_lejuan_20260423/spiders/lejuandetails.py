@@ -1,5 +1,5 @@
 import logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 import scrapy
 import pandas as pd 
@@ -13,32 +13,10 @@ from bs4 import BeautifulSoup
 import re
 import os 
 
-# to record the crawled project numbers, and avoid crawling the same project again
-CRAWLED_PROJECTS_FILE = "crawled_projects_with_details.txt"
-# get all the detail information of projects
+from tencent_lejuan_20260423.tools import load_crawled_projects, fix_url_scheme
+from tencent_lejuan_20260423.settings import CRAWLED_PROJECTS_FILE
 
-def load_crawled_projects(file_path):
-    '''
-    load the crawled project numbers from the file, and return a set of crawled project numbers
-    '''
 
-    if not os.path.exists(file_path):
-        return set()
-    
-    with open(file_path, 'r') as f:
-        crawled_projects = set(line.strip() for line in f)
-    return crawled_projects
-
-def save_crawled_project(project_no, file_path):
-    '''
-    save the crawled project number into the file
-    '''
-    crawled = load_crawled_projects(file_path)
-    if project_no in crawled:
-        logging.info(f"Project {project_no} has already been crawled.")
-        return  
-    with open(file_path, 'a') as f:
-        f.write(project_no + '\n')
 
 
 def get_payload_projectinfo(project_no):
@@ -170,17 +148,6 @@ class LejuandetailsSpider(scrapy.Spider):
 
         all_image_urls = set() # 使用集合去重
 
-        # added: 补全URL协议的工具函数
-        def fix_url_scheme(url):
-            if not url:
-                return None 
-            
-            if url.startswith('//'):
-                return 'https:' + url
-            elif not url.startswith(('http://', 'https://')):
-                return 'https://' + url
-            
-            return url
                 
 
 
@@ -279,15 +246,7 @@ class LejuandetailsSpider(scrapy.Spider):
             # logging.info(f"Project {project_no} has been crawled and saved. Total image URLs: {len(all_image_urls)}")   
 
             yield item
-
-            
-                
-
-
-
-            
-
-            
+         
         except json.JSONDecodeError:
             project_no = response.meta.get('project_no', 'Unknown')
             logging.error(f"Project {project_no} 响应内容不是有效的 JSON 格式")
