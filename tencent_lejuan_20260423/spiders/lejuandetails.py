@@ -59,6 +59,9 @@ class LejuandetailsSpider(scrapy.Spider):
 
     def __init__(self, name = None, **kwargs):
         super().__init__(name, **kwargs)
+        self.total = 0
+        self.skipped = 0
+        self.crawled = 0
         self.crawled_projects = load_crawled_projects(CRAWLED_PROJECTS_FILE)
         logging.info(f"Loaded {len(self.crawled_projects)} crawled projects from {CRAWLED_PROJECTS_FILE}")
 
@@ -76,21 +79,21 @@ class LejuandetailsSpider(scrapy.Spider):
         projects = pd.read_csv("lejuan_snapshot.csv")
 
         # statistics of the project numbers
-        total = 0
-        skipped = 0
-        crawled = 0
+        # total = 0
+        # skipped = 0
+        # crawled = 0
 
         for project_no in projects['project_no']:
             project_no = str(project_no)
-            total += 1
+            self.total += 1
 
             if project_no in self.crawled_projects:
                 logging.info(f"Project {project_no} has already been crawled. Skipping.")
-                skipped += 1
+                self.skipped += 1
                 continue
             
             # for uncrawled project, we will crawl the details of the project, and save the project number into the file
-            crawled += 1
+            self.crawled += 1
             
             
             payload_info = get_payload_projectinfo(project_no)
@@ -113,9 +116,9 @@ class LejuandetailsSpider(scrapy.Spider):
             )
         
         # statistics of the project numbers
-        logging.info(f"Total projects: {total}")
-        logging.info(f"Skipped projects: {skipped}")
-        logging.info(f"Crawled projects: {crawled}")
+        logging.info(f"Total projects: {self.total}")
+        logging.info(f"Skipped projects: {self.skipped}")
+        logging.info(f"Crawled projects: {self.crawled}")
 
             # Get data from ProjectData
             # yield Request(
@@ -228,22 +231,28 @@ class LejuandetailsSpider(scrapy.Spider):
 
             # add all the values for each key in the section of "data" into the object of "item"
             item = ProjectItem()
+            # for k in data.keys():
+            #     # logging.debug(f"k={k}")
+            #     item[k] = data.get(k)
             for k in data.keys():
-                # logging.debug(f"k={k}")
-                item[k] = data.get(k)
+                if k in item.fields:
+                    item[k] = data.get(k)
+
+            # 补充系统字段
             item['server'] = socket.gethostname()
             item['collection_time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            item['category'] = data.get('base').get('cateName')
+
+            # 嵌套字段的安全获取
+            base_data = data.get('base', {})
+            item['category'] = base_data.get('cateName', 'unknown')
             item['project_no'] = project_no
 
-            # to crawl all the images in the detailed page
-            all_image_urls = self.extract_image_urls(json_data)
-            logging.debug(f"project_no = {project_no}, total_image_urls = {len(all_image_urls)}, image_urls = {all_image_urls}")
-            item['image_urls'] = list(all_image_urls)   
 
-            # save the crawled project number into the file
-            # save_crawled_project(project_no, CRAWLED_PROJECTS_FILE)
-            # logging.info(f"Project {project_no} has been crawled and saved. Total image URLs: {len(all_image_urls)}")   
+            # to crawl all the images in the detailed page
+            # 图片提取
+            all_image_urls = self.extract_image_urls(json_data)
+            item['image_urls'] = [url for url in all_image_urls if url]   
+
 
             yield item
          
