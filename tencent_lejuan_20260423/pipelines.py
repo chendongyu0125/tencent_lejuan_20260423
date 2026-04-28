@@ -65,7 +65,7 @@ class ImageDownloadPipeline(ImagesPipeline):
         return f"{prefix}/{project_no}/{base_name}"
 
     def item_completed(self, results, item, info):
-        image_results = [x for x in results if x[0]]
+        
         success_results = [x for ok, x in results if ok]
         # 失败的列表 (包含具体的 Failure 错误信息)
         failed_results = [x for ok, x in results if not ok]
