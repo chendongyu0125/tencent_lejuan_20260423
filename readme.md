@@ -6,7 +6,7 @@
 - **爬取项目列表简介**：`scrapy crawl lejuansnapshots -o lejuan_snapshot.csv`
 - **爬取项目详细信息**：`scrapy crawl lejuandetails -o lejuan_details.jsonl`
 - **爬取项目资助统计**：`scrapy crawl lejuandonations -o lejuan_donations.csv`
-- **爬取项目更新进展**：`scrapy crawl lejuanupdates -o lejuan_updates.csv`
+- **爬取项目更新进展**：`scrapy crawl lejuanupdates -o lejuan_updates.jsonl`
 
 ## 定时任务设置 (Crontab)
 
