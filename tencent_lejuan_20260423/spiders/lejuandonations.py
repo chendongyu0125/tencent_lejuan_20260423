@@ -24,7 +24,7 @@ from tencent_lejuan_20260423.tools import load_crawled_projects, save_crawled_pr
 CRAWLED_DONATION_FILE = "crawled_donation_stats.txt" 
 
 class DonationinfoSpider(scrapy.Spider):
-    name = "donationinfo"
+    name = "lejuandonations"
     allowed_domains = ["gongyi.qq.com"]
     api_url = "https://ssl.gongyi.qq.com/gygw-app/ed/gdata.query/GetProjData"
     
