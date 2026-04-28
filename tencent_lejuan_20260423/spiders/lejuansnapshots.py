@@ -1,5 +1,5 @@
 import logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 import scrapy
 from scrapy.http import FormRequest
 import json
@@ -9,10 +9,9 @@ import socket
 from datetime import datetime
 import math
 import time
-import image
-CRAWLED_SNAPSHOTS_FILE = "crawled_projects_with_snapshots.txt"
-
-
+import os
+from tencent_lejuan_20260423.tools import load_crawled_projects, fix_url_scheme
+from tencent_lejuan_20260423.settings import CRAWLED_SNAPSHOTS_FILE
 
 
 class LejuanSpider(scrapy.Spider):
@@ -20,7 +19,7 @@ class LejuanSpider(scrapy.Spider):
     To crawl the snapshot lsting of projects
     '''
     
-    name = "lejuan"
+    name = "lejuansnapshots"
     allowed_domains = ["gongyi.qq.com"]
     categories = [71, 72, 73, 74, 75, 900]
     project_first_codes = ['PM0101', 'PM0102', 'PM0103', 'PM0104', 'PM0105','PM0106']
@@ -39,6 +38,16 @@ class LejuanSpider(scrapy.Spider):
             'tencent_lejuan_20260423.pipelines.SnapshotImagesPipeline': 300,
         }
     }
+    skipped = 0
+    crawled = 0
+    total = 0
+
+    def __init__(self, name = None, **kwargs):
+
+        super().__init__(name, **kwargs)
+        self.crawled_projects = load_crawled_projects(CRAWLED_SNAPSHOTS_FILE)
+        logging.info(f"Loaded {len(self.crawled_projects)} crawled projects from {CRAWLED_SNAPSHOTS_FILE}")
+        
 
 
     def generate_payload(self, project_first_code, page=0):
@@ -100,15 +109,18 @@ class LejuanSpider(scrapy.Spider):
             project_first_code = response.meta['payload']['project_first_code']
             total_num = df.get("data").get("total_num")
             
-            
+            self.total += total_num
             logging.debug(f"total_num={total_num}")
             logging.debug(f"current_pag = {page}" )
+            logging.info(f"Processing page {page} for project_first_code {project_first_code}, total projects so far: {self.total}")
+
 
             
 
             project_list = df.get("data").get("proj_list")
             logging.debug(f"item_num = {len(project_list)}")
             position = 0
+            
             for project in project_list:
                  
                 # addr
@@ -143,6 +155,18 @@ class LejuanSpider(scrapy.Spider):
                 # yqj_detail_address = info.get('yqj_detail_address')
 
                 # load item
+
+                project_no = info.get('project_no')
+
+
+                if project_no in self.crawled_projects:
+                    logging.info(f"Project {project_no} has already been crawled. Skipping.")
+                    self.skipped += 1
+                    continue
+
+                            # for uncrawled project, we will crawl the details of the project, and save the project number into the file
+                self.crawled += 1
+
                 item = SnapshotItem()
                 l = ItemLoader(item=item, response=response) # 建议传入 response，方便后续可能的 XPath/CSS 提取
 
@@ -171,13 +195,13 @@ class LejuanSpider(scrapy.Spider):
                 image_url = info.get('phone_list_image')
                 if image_url:
                     # 如果之前的 url 是以 // 开头（如 //img.example.com/1.jpg），可以在这里修复
-                    if image_url.startswith('//'):
-                        image_url = 'https:' + image_url
-                    l.add_value('image_urls', image_url) # ItemLoader 会自动将其处理为 iterable，传字符串即可
+                    fixed_image_url = fix_url_scheme(image_url)
+                    logging.debug(f"Original image URL: {image_url}, Fixed image URL: {fixed_image_url}")
+
+                    l.add_value('image_urls', fixed_image_url) # ItemLoader 会自动将其处理为 iterable，传字符串即可
 
                 # 4. 正确产出 Item
-                yield l.load_item()
-                
+                yield l.load_item()            
                 
             # Crawl a new page of project listing 
             payload = response.meta['payload']
@@ -196,19 +220,7 @@ class LejuanSpider(scrapy.Spider):
                     callback=self.parse,
                     meta={"payload":payload}
                 )
-
-
-
-
-                
-                      
-                
-
-
-                 
-            
-
-
+ 
         except json.JSONDecodeError:
             logging.error("响应内容不是有效的 JSON 格式")
             logging.error(f"响应内容预览: {response.text[:500]}")   

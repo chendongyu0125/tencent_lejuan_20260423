@@ -1,5 +1,5 @@
 import logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 import scrapy
 import pandas as pd 
@@ -13,32 +13,10 @@ from bs4 import BeautifulSoup
 import re
 import os 
 
-# to record the crawled project numbers, and avoid crawling the same project again
-CRAWLED_PROJECTS_FILE = "crawled_projects_with_details.txt"
-# get all the detail information of projects
+from tencent_lejuan_20260423.tools import load_crawled_projects, fix_url_scheme
+from tencent_lejuan_20260423.settings import CRAWLED_PROJECTS_FILE
 
-def load_crawled_projects(file_path):
-    '''
-    load the crawled project numbers from the file, and return a set of crawled project numbers
-    '''
 
-    if not os.path.exists(file_path):
-        return set()
-    
-    with open(file_path, 'r') as f:
-        crawled_projects = set(line.strip() for line in f)
-    return crawled_projects
-
-def save_crawled_project(project_no, file_path):
-    '''
-    save the crawled project number into the file
-    '''
-    crawled = load_crawled_projects(file_path)
-    if project_no in crawled:
-        logging.info(f"Project {project_no} has already been crawled.")
-        return  
-    with open(file_path, 'a') as f:
-        f.write(project_no + '\n')
 
 
 def get_payload_projectinfo(project_no):
@@ -61,7 +39,8 @@ class LejuandetailsSpider(scrapy.Spider):
     This spider is developed to crawl details of all charity projects on the Lejuan platform
     '''
     name = "lejuandetails"
-    allowed_domains = ["gongyi.qq.com"]
+    # allowed_domains = ["gongyi.qq.com"]
+    allowed_domains = ["gongyi.qq.com", "qq.com"]
     # start_urls = ["https://gongyi.qq.com"]
     headers = {
         "Content-Type": "application/json",
@@ -88,6 +67,9 @@ class LejuandetailsSpider(scrapy.Spider):
 
     def __init__(self, name = None, **kwargs):
         super().__init__(name, **kwargs)
+        self.total = 0
+        self.skipped = 0
+        self.crawled = 0
         self.crawled_projects = load_crawled_projects(CRAWLED_PROJECTS_FILE)
         logging.info(f"Loaded {len(self.crawled_projects)} crawled projects from {CRAWLED_PROJECTS_FILE}")
 
@@ -105,21 +87,21 @@ class LejuandetailsSpider(scrapy.Spider):
         projects = pd.read_csv("lejuan_snapshot.csv")
 
         # statistics of the project numbers
-        total = 0
-        skipped = 0
-        crawled = 0
+        # total = 0
+        # skipped = 0
+        # crawled = 0
 
         for project_no in projects['project_no']:
             project_no = str(project_no)
-            total += 1
+            self.total += 1
 
             if project_no in self.crawled_projects:
                 logging.info(f"Project {project_no} has already been crawled. Skipping.")
-                skipped += 1
+                self.skipped += 1
                 continue
             
             # for uncrawled project, we will crawl the details of the project, and save the project number into the file
-            crawled += 1
+            self.crawled += 1
             
             
             payload_info = get_payload_projectinfo(project_no)
@@ -142,9 +124,9 @@ class LejuandetailsSpider(scrapy.Spider):
             )
         
         # statistics of the project numbers
-        logging.info(f"Total projects: {total}")
-        logging.info(f"Skipped projects: {skipped}")
-        logging.info(f"Crawled projects: {crawled}")
+        logging.info(f"Total projects: {self.total}")
+        logging.info(f"Skipped projects: {self.skipped}")
+        logging.info(f"Crawled projects: {self.crawled}")
 
             # Get data from ProjectData
             # yield Request(
@@ -177,17 +159,6 @@ class LejuandetailsSpider(scrapy.Spider):
 
         all_image_urls = set() # 使用集合去重
 
-        # added: 补全URL协议的工具函数
-        def fix_url_scheme(url):
-            if not url:
-                return None 
-            
-            if url.startswith('//'):
-                return 'https:' + url
-            elif not url.startswith(('http://', 'https://')):
-                return 'https://' + url
-            
-            return url
                 
 
 
@@ -268,33 +239,31 @@ class LejuandetailsSpider(scrapy.Spider):
 
             # add all the values for each key in the section of "data" into the object of "item"
             item = ProjectItem()
+            # for k in data.keys():
+            #     # logging.debug(f"k={k}")
+            #     item[k] = data.get(k)
             for k in data.keys():
-                # logging.debug(f"k={k}")
-                item[k] = data.get(k)
+                if k in item.fields:
+                    item[k] = data.get(k)
+
+            # 补充系统字段
             item['server'] = socket.gethostname()
             item['collection_time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            item['category'] = data.get('base').get('cateName')
+
+            # 嵌套字段的安全获取
+            base_data = data.get('base', {})
+            item['category'] = base_data.get('cateName', 'unknown')
             item['project_no'] = project_no
 
-            # to crawl all the images in the detailed page
-            all_image_urls = self.extract_image_urls(json_data)
-            logging.debug(f"project_no = {project_no}, total_image_urls = {len(all_image_urls)}, image_urls = {all_image_urls}")
-            item['image_urls'] = list(all_image_urls)   
 
-            # save the crawled project number into the file
-            # save_crawled_project(project_no, CRAWLED_PROJECTS_FILE)
-            # logging.info(f"Project {project_no} has been crawled and saved. Total image URLs: {len(all_image_urls)}")   
+            # to crawl all the images in the detailed page
+            # 图片提取
+            all_image_urls = self.extract_image_urls(json_data)
+            item['image_urls'] = [url for url in all_image_urls if url]   
+
 
             yield item
-
-            
-                
-
-
-
-            
-
-            
+         
         except json.JSONDecodeError:
             project_no = response.meta.get('project_no', 'Unknown')
             logging.error(f"Project {project_no} 响应内容不是有效的 JSON 格式")

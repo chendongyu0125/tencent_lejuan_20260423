@@ -1,5 +1,5 @@
 import logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 # Define your item pipelines here
 #
 # Don't forget to add your pipeline to the ITEM_PIPELINES setting
@@ -12,79 +12,142 @@ from itemadapter import ItemAdapter
 from scrapy.pipelines.images import ImagesPipeline
 from scrapy import Request
 
-from tencent_lejuan_20260423.spiders.lejuandetails import get_payload_projectinfo, get_payload_projectdata, load_crawled_projects, save_crawled_project, CRAWLED_PROJECTS_FILE
-from tencent_lejuan_20260423.spiders.lejuan import CRAWLED_SNAPSHOTS_FILE
+from tencent_lejuan_20260423.tools import save_crawled_project
+from tencent_lejuan_20260423.settings import CRAWLED_PROJECTS_FILE, CRAWLED_SNAPSHOTS_FILE
 
-class SnapshotImagesPipeline(ImagesPipeline):
-    '''
-    download snapshot images, and save them in the folder of "images"
-    '''
+import os
+from urllib.parse import urlparse  # 必须添加这一行
+
+class ImageDownloadPipeline(ImagesPipeline):
+    def _clean_project_no(self, item):
+        project_no = item.get("project_no")
+        if isinstance(project_no, (list, tuple)):
+            project_no = project_no[0] if project_no else "unknown"
+        return str(project_no) if project_no else "unknown"
+
     def get_media_requests(self, item, info):
-        project_no = item.get("project_no")[0] # project_no is a list, we need to get the first element
-
-        for image_url in item.get('image_urls', []):
-            yield(
-                Request(image_url, meta = {'project_no': project_no})
-            )
-
-    def file_path(self, request, response = None, info = None, *, item = None):
-        project_no = str(request.meta['project_no'])
-
-        # to get the extension of the image file
-        image_extension = request.url.split('.')[-1]
+        project_no = self._clean_project_no(item)
         
-        # construct the image file path, we save the image in the folder of "images/cover_images", and we use the last two digits of the project_no as the subfolder name, and we use the project_no as the image file name, and we use the original image extension as the image file extension       
-        image_path = f"cover_images/{project_no[-2:]}/{project_no}/{project_no}.{image_extension}"
-        return image_path
-    
-
-    
-
-        
-class DetailImagesPipeline(ImagesPipeline):
-    '''
-    download detail images, and save them in the folder of "images/details"
-    '''
-    def get_media_requests(self, item, info):
-        project_no = item.get("project_no") # project_no is already a string, no need to get the first element
-
-        # 过滤无效URL
         for image_url in item.get('image_urls', []):
-            if not image_url or not image_url.startswith(('http://', 'https://', '//')):
-                logging.warning(f"Invalid image URL skipped: {image_url} for project {project_no}")
-                logging.warning(f"Project {project_no} has invalid image URL: {image_url}")
+            # 处理 // 开头的协议自适应 URL
+            if image_url and image_url.startswith('//'):
+                image_url = 'https:' + image_url
+                
+            if not image_url or not image_url.startswith(('http://', 'https://')):
+                logging.warning(f"Project {project_no} has invalid URL: {image_url}")
                 continue
-            yield(
-                Request(image_url, meta = {'project_no': project_no})
-            )
+                
+            yield Request(image_url, 
+                          meta={'project_no': project_no},
+                          headers={'Referer': 'https://gongyi.qq.com/'} # 添加 Referer 绕过 CDN 防盗链
+                    )
+            
 
-    def file_path(self, request, response = None, info = None, *, item = None):
-        project_no = str(request.meta['project_no'])
+    def file_path(self, request, response=None, info=None, *, item=None):
+        project_no = request.meta.get('project_no', 'unknown')
+        
+        # 使用 urlparse 清除查询参数
+        path = urlparse(request.url).path
+        if path.endswith('/'):
+            path = path[:-1]
+        
+        base_name = os.path.basename(path)
+        
+        # 处理特殊结尾如 /500
+        if path.endswith('/500'):
+            base_name = f"{path.split('/')[-2]}.png"
+        
+        # 确保目录分级安全 (取最后两位)
+        prefix = project_no[-2:] if len(project_no) >= 2 else "00"
+        return f"{prefix}/{project_no}/{base_name}"
 
-        # get the image file name
-        if request.url.endswith(('/500', '/')):            
-            image_file_name = f"{request.url.split('/')[-2]}.png"
-        else:            
-            image_file_name = request.url.split('/')[-1]
-
-
-        image_path = f"details/{project_no[-2:]}/{project_no}/{image_file_name}"
-        return image_path
-    
-    # trigger when the image is download 
     def item_completed(self, results, item, info):
-        # check if the image is downloaded successfully
         image_results = [x for x in results if x[0]]
+        project_no = self._clean_project_no(item)
+
         if not image_results:
-            logging.warning(f"No images were downloaded for project {item.get('project_no')}.")
-            return item 
+            logging.warning(f"No images downloaded for project {project_no}.")
         else:
-            project_no = item.get('project_no')
+            logging.info(f"{len(image_results)} images downloaded for project {project_no}.")
+        
+        return item
+
+class SnapshotImagesPipeline(ImageDownloadPipeline):
+    def file_path(self, request, response=None, info=None, *, item=None):
+        path = super().file_path(request, response, info, item=item)
+        return f"cover_images/{path}"
+
+    def item_completed(self, results, item, info):
+        # 先执行父类逻辑
+        item = super().item_completed(results, item, info)
+        
+        # 只有在有成功结果时才保存标记
+        success_results = [x for x in results if x[0]]
+        if success_results:
+            project_no = self._clean_project_no(item)
+            save_crawled_project(project_no, CRAWLED_SNAPSHOTS_FILE)
+            
+        return item
+
+class DetailImagesPipeline(ImageDownloadPipeline):
+    '''
+    下载详情图，并保存在 "details/" 目录下
+    '''
+
+    def file_path(self, request, response=None, info=None, *, item=None):
+        # 调用父类逻辑生成基础路径 (例如: 01/project123/image.jpg)
+        image_path = super().file_path(request, response, info, item=item)
+        # 拼接详情图专用的前缀
+        full_path = f"details/{image_path}"
+        logging.debug(f"Saving detail image to {full_path}")
+        return full_path
+    
+    def item_completed(self, results, item, info):
+        # 1. 调用父类方法完成基础的日志记录（不建议在父类直接写数据库/文件，父类只负责通用逻辑）
+        item = super().item_completed(results, item, info)
+        
+        # 2. 只有当确实有图片下载成功时，才执行保存标记的操作
+        success_results = [x for x in results if x[0]]
+        
+        if success_results:
+            # 使用统一的清洗逻辑获取 project_no
+            project_no = self._clean_project_no(item)
+            
+            # 只有下载成功才记录到已爬取详情的项目文件中
             save_crawled_project(project_no, CRAWLED_PROJECTS_FILE)
-            logging.info(f"{len(image_results)} images were downloaded for project {item.get('project_no')}.")
-            return item
+            logging.info(f"Project {project_no} marked as completed in {CRAWLED_PROJECTS_FILE}")
+            
+        return item
 
 
+class UpdateImagesPipeline(ImageDownloadPipeline):
+    '''
+    专门处理项目进展图片的下载与存储
+    '''
+    def file_path(self, request, response=None, info=None, *, item=None):
+        # 调用父类生成基础路径 (例如: 26/34553/filename.jpg)
+        base_path = super().file_path(request, response, info, item=item)
+        # 强制添加 updates 前缀，最终路径为 images/updates/26/34553/...
+        full_path = f"updates/{base_path}"
+        return full_path
+
+    def item_completed(self, results, item, info):
+        # 执行父类基础逻辑 (如日志打印)
+        item = super().item_completed(results, item, info)
+        
+        # 检查是否有图片下载成功
+        success_results = [x for x in results if x[0]]
+        
+        if success_results:
+            # 使用统一清洗逻辑获取项目编号
+            project_no = self._clean_project_no(item)
+            
+            # 记录到项目进展进度文件中
+            from tencent_lejuan_20260423.settings import CRAWLED_UPDATES_FILE
+            save_crawled_project(project_no, CRAWLED_UPDATES_FILE)
+            logging.info(f"Project {project_no} updates images marked as completed.")
+            
+        return item
 
 class TencentLejuan20260423Pipeline:
     def process_item(self, item, spider):
