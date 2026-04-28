@@ -37,7 +37,11 @@ class ImageDownloadPipeline(ImagesPipeline):
                 logging.warning(f"Project {project_no} has invalid URL: {image_url}")
                 continue
                 
-            yield Request(image_url, meta={'project_no': project_no})
+            yield Request(image_url, 
+                          meta={'project_no': project_no},
+                          headers={'Referer': 'https://gongyi.qq.com/'} # 添加 Referer 绕过 CDN 防盗链
+                    )
+            
 
     def file_path(self, request, response=None, info=None, *, item=None):
         project_no = request.meta.get('project_no', 'unknown')
@@ -115,6 +119,35 @@ class DetailImagesPipeline(ImageDownloadPipeline):
             
         return item
 
+
+class UpdateImagesPipeline(ImageDownloadPipeline):
+    '''
+    专门处理项目进展图片的下载与存储
+    '''
+    def file_path(self, request, response=None, info=None, *, item=None):
+        # 调用父类生成基础路径 (例如: 26/34553/filename.jpg)
+        base_path = super().file_path(request, response, info, item=item)
+        # 强制添加 updates 前缀，最终路径为 images/updates/26/34553/...
+        full_path = f"updates/{base_path}"
+        return full_path
+
+    def item_completed(self, results, item, info):
+        # 执行父类基础逻辑 (如日志打印)
+        item = super().item_completed(results, item, info)
+        
+        # 检查是否有图片下载成功
+        success_results = [x for x in results if x[0]]
+        
+        if success_results:
+            # 使用统一清洗逻辑获取项目编号
+            project_no = self._clean_project_no(item)
+            
+            # 记录到项目进展进度文件中
+            from tencent_lejuan_20260423.settings import CRAWLED_UPDATES_FILE
+            save_crawled_project(project_no, CRAWLED_UPDATES_FILE)
+            logging.info(f"Project {project_no} updates images marked as completed.")
+            
+        return item
 
 class TencentLejuan20260423Pipeline:
     def process_item(self, item, spider):

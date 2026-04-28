@@ -97,4 +97,8 @@ FEED_EXPORT_ENCODING = "utf-8"
 CRAWLED_SNAPSHOTS_FILE = "crawled_projects_with_snapshots.txt"
 # to record the crawled project numbers, and avoid crawling the same project again
 CRAWLED_PROJECTS_FILE  = "crawled_projects_with_details.txt"
+CRAWLED_UPDATES_FILE = "crawled_project_updates.txt"
+
+REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
+MEDIA_ALLOW_REDIRECTS = True
 

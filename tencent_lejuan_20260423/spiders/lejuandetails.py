@@ -39,7 +39,8 @@ class LejuandetailsSpider(scrapy.Spider):
     This spider is developed to crawl details of all charity projects on the Lejuan platform
     '''
     name = "lejuandetails"
-    allowed_domains = ["gongyi.qq.com"]
+    # allowed_domains = ["gongyi.qq.com"]
+    allowed_domains = ["gongyi.qq.com", "qq.com"]
     # start_urls = ["https://gongyi.qq.com"]
     headers = {
         "Content-Type": "application/json",

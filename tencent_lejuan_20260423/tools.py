@@ -32,17 +32,19 @@ def save_crawled_project(project_no, file_path):
         f.write(project_no + '\n')
 
 
-# added: 补全URL协议的工具函数
+# tools.py 中的 fix_url_scheme 修改建议
 def fix_url_scheme(url):
     if not url:
         return None 
-    
     if url.startswith('//'):
         return 'https:' + url
-    elif not url.startswith(('http://', 'https://')):
+    # 将 http 替换为 https 以减少重定向
+    if url.startswith('http://'):
+        return url.replace('http://', 'https://', 1)
+    if not url.startswith('https://'):
         return 'https://' + url
-    
     return url
+
 
 def extract_element_from_list(value):
     if isinstance(value, (list, tuple)):
