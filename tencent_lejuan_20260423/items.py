@@ -42,6 +42,8 @@ class ProjectItem(Item):
     # download snapshot image
     image_urls = Field()
     images = Field()
+    image_paths = Field()
+    failed_images_count = scrapy.Field() # 下载失败的图片数量 (供后续存储使用)
 
     # details
     base = Field()
@@ -98,10 +100,14 @@ class SnapshotItem(Item):
     server = Field()
     page = Field()
     position = Field()
+    
 
     # download snapshot image
     image_urls = Field()
     images = Field()
+    image_paths = Field()
+    
+    failed_images_count = scrapy.Field() # 下载失败的图片数量 (供后续存储使用)
 
 class UpdateItem(scrapy.Item):
     # --- 系统与关联信息 ---
@@ -134,3 +140,6 @@ class UpdateItem(scrapy.Item):
     image_list = scrapy.Field()       # 原始图片 URL 列表
     image_urls = scrapy.Field()       # 供 Scrapy 下载的图片 URL 列表 (去重后)
     images = scrapy.Field()           # Scrapy 下载结果信息
+    
+    image_paths = scrapy.Field()         # 下载成功的本地路径列表 (供后续存储使用)
+    failed_images_count = scrapy.Field() # 下载失败的图片数量 (供后续存储使用)

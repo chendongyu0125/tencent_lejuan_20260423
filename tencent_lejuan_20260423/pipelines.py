@@ -31,7 +31,7 @@ class ImageDownloadPipeline(ImagesPipeline):
         for image_url in item.get('image_urls', []):
             if image_url.startswith('data:'):
                 continue
-            
+
             # 处理 // 开头的协议自适应 URL
             if image_url and image_url.startswith('//'):
                 image_url = 'https:' + image_url
@@ -66,12 +66,24 @@ class ImageDownloadPipeline(ImagesPipeline):
 
     def item_completed(self, results, item, info):
         image_results = [x for x in results if x[0]]
+        success_results = [x for ok, x in results if ok]
+        # 失败的列表 (包含具体的 Failure 错误信息)
+        failed_results = [x for ok, x in results if not ok]
         project_no = self._clean_project_no(item)
 
-        if not image_results:
-            logging.warning(f"No images downloaded for project {project_no}.")
+        if not success_results:
+            # 如果有失败记录，打印更具体的错误
+            if failed_results:
+                logging.error(f"Project {project_no}: All {len(failed_results)} images failed. Errors: {failed_results}")
+            else:
+                logging.warning(f"Project {project_no}: No image URLs found to download.")
         else:
-            logging.info(f"{len(image_results)} images downloaded for project {project_no}.")
+            logging.info(f"Project {project_no}: {len(success_results)} images downloaded, {len(failed_results)} failed.")
+            
+            # 将下载成功的本地路径保存到 item 中，方便后续存储
+            item['image_paths'] = [x['path'] for x in success_results]
+            item['failed_images_count'] = len(failed_results)
+
         
         return item
 
