@@ -46,9 +46,10 @@ DOWNLOAD_DELAY = 1
 
 # Enable or disable downloader middlewares
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
-#DOWNLOADER_MIDDLEWARES = {
-#    "tencent_lejuan_20260423.middlewares.TencentLejuan20260423DownloaderMiddleware": 543,
-#}
+DOWNLOADER_MIDDLEWARES = {
+   "tencent_lejuan_20260423.middlewares.TencentLejuan20260423DownloaderMiddleware": 543,
+   "scrapy.downloadermiddlewares.redirect.RedirectMiddleware":600,
+    }
 
 # Enable or disable extensions
 # See https://docs.scrapy.org/en/latest/topics/extensions.html
@@ -66,6 +67,8 @@ DOWNLOAD_DELAY = 1
 
 IMAGES_STORE = 'images'
 IMAGES_EXPIRES = 90
+
+REDIRECT_ENABLED = True 
 
 
 # Enable and configure the AutoThrottle extension (disabled by default)

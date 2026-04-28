@@ -67,13 +67,20 @@ class LejuandetailsSpider(scrapy.Spider):
         "Content-Type": "application/json",
         # 加上 Referer 和 User-Agent 可以模拟浏览器行为，防止被简单的反爬机制拦截
         "Referer": "https://gongyi.qq.com/",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        'Referer': 'http://gongyi.qq.com/'
     }
 
     custom_settings = {
         'ITEM_PIPELINES': {
             'tencent_lejuan_20260423.pipelines.DetailImagesPipeline': 300,
-        }
+        }, 
+
+        # 'DOWNLOADER_MIDDLEWARES': {
+        #     'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': 1,
+        #     'scrapy.downloadermiddlewares.referer.RefererMiddleware': 2, # 确保开启
+        #     'scrapy.downloadermiddlewares.retry.RetryMiddleware': 3,      # 自动重试
+        # }
     }
 
     apiurl_projectinfo = "https://ssl.gongyi.qq.com/gygw-app/ed/project_center_query/GetProjectInfoForC"
