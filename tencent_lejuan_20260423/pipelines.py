@@ -29,6 +29,9 @@ class ImageDownloadPipeline(ImagesPipeline):
         project_no = self._clean_project_no(item)
         
         for image_url in item.get('image_urls', []):
+            if image_url.startswith('data:'):
+                continue
+            
             # 处理 // 开头的协议自适应 URL
             if image_url and image_url.startswith('//'):
                 image_url = 'https:' + image_url
