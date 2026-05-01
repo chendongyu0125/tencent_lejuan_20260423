@@ -12,6 +12,8 @@ import time
 import os
 from tencent_lejuan_20260423.tools import load_crawled_projects, fix_url_scheme
 from tencent_lejuan_20260423.settings import CRAWLED_SNAPSHOTS_FILE
+import settings
+import pandas as pd 
 
 
 class LejuanSpider(scrapy.Spider):
@@ -47,6 +49,7 @@ class LejuanSpider(scrapy.Spider):
         super().__init__(name, **kwargs)
         self.crawled_projects = load_crawled_projects(CRAWLED_SNAPSHOTS_FILE)
         logging.info(f"Loaded {len(self.crawled_projects)} crawled projects from {CRAWLED_SNAPSHOTS_FILE}")
+
         
 
 

@@ -1,6 +1,7 @@
 import logging
 logging.basicConfig(level=logging.INFO)
 
+from tencent_lejuan_20260423 import settings
 import scrapy
 import pandas as pd 
 from scrapy.http import Request, FormRequest
@@ -72,6 +73,13 @@ class LejuandetailsSpider(scrapy.Spider):
         self.crawled = 0
         self.crawled_projects = load_crawled_projects(CRAWLED_PROJECTS_FILE)
         logging.info(f"Loaded {len(self.crawled_projects)} crawled projects from {CRAWLED_PROJECTS_FILE}")
+                # 初始化时加载所有需要爬取的项目编号
+        try:
+            self.project_nos = set(pd.read_csv(settings.PROJECT_NO_FILE, header=None, dtype=str)[0].dropna().unique())
+            logging.info(f"已加载 {len(self.project_nos)} 个需要爬取的项目编号")
+        except FileNotFoundError:
+            logging.error("未找到 project_nos.dat 文件，请先运行 generate_project_no_file 函数生成该文件")
+            self.project_nos = set()
 
     
 
@@ -83,15 +91,9 @@ class LejuandetailsSpider(scrapy.Spider):
     def start_requests(self):
 
         # get all the projects
-        # projects = pd.read_csv("lejuan_snapshot.csv")[:1000] # 先测试前100个项目，后续可以去掉这个限制
-        projects = pd.read_csv("lejuan_snapshot.csv")
 
-        # statistics of the project numbers
-        # total = 0
-        # skipped = 0
-        # crawled = 0
 
-        for project_no in projects['project_no']:
+        for project_no in self.project_nos:
             project_no = str(project_no)
             self.total += 1
 
@@ -112,7 +114,7 @@ class LejuandetailsSpider(scrapy.Spider):
                 'project_no': project_no
             }
             
-            # Get data from Project Inof
+            # Get data from Project Info
             yield Request(
                 
                 url=self.apiurl_projectinfo,

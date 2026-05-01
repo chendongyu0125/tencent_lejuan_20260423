@@ -24,6 +24,7 @@ from tencent_lejuan_20260423.items import UpdateItem
 from tencent_lejuan_20260423.tools import fix_url_scheme
 from tencent_lejuan_20260423.tools import load_crawled_projects
 from tencent_lejuan_20260423.settings import CRAWLED_UPDATES_FILE
+import settings
 
 class LejuanupdatesSpider(scrapy.Spider):
     name = "lejuanupdates"
@@ -47,15 +48,16 @@ class LejuanupdatesSpider(scrapy.Spider):
             # 启动时加载进度
             self.crawled_projects = load_crawled_projects(CRAWLED_UPDATES_FILE)
             logging.info(f"Loaded {len(self.crawled_projects)} crawled updates from {CRAWLED_UPDATES_FILE}")
+            try:
+                self.project_nos = set(pd.read_csv(settings.PROJECT_NO_FILE, header=None, dtype=str)[0].dropna().unique())
+                logging.info(f"已加载 {len(self.project_nos)} 个需要爬取的项目编号")
+            except FileNotFoundError:
+                logging.error("未找到 project_nos.dat 文件，请先运行 generate_project_no_file 函数生成该文件")
+                self.project_nos = set()
 
     def start_requests(self):
-        try:
-            projects = pd.read_csv("lejuan_snapshot.csv", dtype={'project_no': str})
-        except FileNotFoundError:
-            logging.error("未找到 lejuan_snapshot.csv")
-            return
 
-        for project_no in projects['project_no'].unique():
+        for project_no in self.project_nos:
             if not project_no or project_no == 'nan':
                 continue
 

@@ -16,12 +16,13 @@ import pandas as pd
 import logging
 import socket
 from datetime import datetime
+import settings
 
 # 导入工具函数和配置
 from tencent_lejuan_20260423.items import DonationItem
 from tencent_lejuan_20260423.tools import load_crawled_projects, save_crawled_project
 # 建议在 settings.py 中定义这个新文件路径
-CRAWLED_DONATION_FILE = "crawled_donation_stats.txt" 
+CRAWLED_DONATION_FILE = settings.CRAWLED_DONATION_FILE
 
 class DonationinfoSpider(scrapy.Spider):
     name = "lejuandonations"
@@ -40,15 +41,19 @@ class DonationinfoSpider(scrapy.Spider):
         self.crawled_projects = load_crawled_projects(CRAWLED_DONATION_FILE)
         logging.info(f"已加载 {len(self.crawled_projects)} 个已爬取的捐赠数据记录")
 
-    def start_requests(self):
+        # 初始化时加载所有需要爬取的项目编号
         try:
-            # 强制 project_no 为字符串
-            projects = pd.read_csv("lejuan_snapshot.csv", dtype={'project_no': str})
+            self.project_nos = set(pd.read_csv(settings.PROJECT_NO_FILE, header=None, dtype=str)[0].dropna().unique())
+            logging.info(f"已加载 {len(self.project_nos)} 个需要爬取的项目编号")
         except FileNotFoundError:
-            logging.error("未找到 lejuan_snapshot.csv")
-            return
+            logging.error("未找到 project_nos.dat 文件，请先运行 generate_project_no_file 函数生成该文件")
+            self.project_nos = set()
 
-        for project_no in projects['project_no'].unique():
+
+    def start_requests(self):
+
+
+        for project_no in self.project_nos:
             if not project_no or project_no == 'nan':
                 continue
             

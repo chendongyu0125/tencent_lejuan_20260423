@@ -101,6 +101,10 @@ CRAWLED_SNAPSHOTS_FILE = "crawled_projects_with_snapshots.txt"
 # to record the crawled project numbers, and avoid crawling the same project again
 CRAWLED_PROJECTS_FILE  = "crawled_projects_with_details.txt"
 CRAWLED_UPDATES_FILE = "crawled_project_updates.txt"
+CRAWLED_DONATION_FILE = "crawled_donation_stats.txt" # 新增：记录已爬取的捐赠数据的项目编号的文件路径
+
+PROJECT_NO_FILE = "project_nos.dat"  # 新增：记录所有需要爬取的项目编号的文件路径
+PROJECT_SNAPSHOT_DATAFILE = "lejuan_snapshot.csv"  # 新增：记录项目快照的文件路径
 
 REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
 MEDIA_ALLOW_REDIRECTS = True
