@@ -1,6 +1,29 @@
 
 # 腾讯公益数据爬取项目
 
+## 一键部署（新 Mac 机器）
+
+在新 Mac 终端中运行以下命令即可完成全部部署：
+
+```bash
+bash <(curl -sSL https://gitee.com/chendongyu0125/tencent_lejuan_20260423/raw/main/deploy.sh)
+```
+
+或者从 GitHub：
+
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/chendongyu0125/tencent_lejuan_20260423/main/deploy.sh)
+```
+
+**部署脚本会自动完成：**
+1. 检查网络和系统环境
+2. 安装 Miniconda（如未安装）
+3. 从 Gitee 克隆项目代码
+4. 创建 conda 虚拟环境并安装 Python 依赖
+5. 初始化项目数据文件
+6. 配置每周一 0:00 的自动爬取定时任务
+7. 验证部署是否成功
+
 ## 单次爬取命令
 
 - **爬取项目列表简介**：`scrapy crawl lejuansnapshots -o lejuan_snapshot.csv`
