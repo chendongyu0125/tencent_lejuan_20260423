@@ -1,0 +1,4 @@
+scrapy>=2.6
+pandas>=1.5
+beautifulsoup4>=4.11
+itemadapter>=0.7
