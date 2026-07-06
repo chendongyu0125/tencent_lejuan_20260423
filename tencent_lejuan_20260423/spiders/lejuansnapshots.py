@@ -10,7 +10,7 @@ from datetime import datetime
 import math
 import time
 import os
-from tencent_lejuan_20260423.tools import load_crawled_projects, fix_url_scheme
+from tencent_lejuan_20260423.tools import load_crawled_projects
 from tencent_lejuan_20260423.settings import CRAWLED_SNAPSHOTS_FILE
 import settings
 import pandas as pd 
@@ -35,11 +35,6 @@ class LejuanSpider(scrapy.Spider):
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
     
-    custom_settings = {
-        'ITEM_PIPELINES': {
-            'tencent_lejuan_20260423.pipelines.SnapshotImagesPipeline': 300,
-        }
-    }
     skipped = 0
     crawled = 0
     total = 0
@@ -194,16 +189,7 @@ class LejuanSpider(scrapy.Spider):
                 l.add_value('position', str(position))
                 position += 1
 
-                # 3. 处理图片链接（必须判空）
-                image_url = info.get('phone_list_image')
-                if image_url:
-                    # 如果之前的 url 是以 // 开头（如 //img.example.com/1.jpg），可以在这里修复
-                    fixed_image_url = fix_url_scheme(image_url)
-                    logging.debug(f"Original image URL: {image_url}, Fixed image URL: {fixed_image_url}")
-
-                    l.add_value('image_urls', fixed_image_url) # ItemLoader 会自动将其处理为 iterable，传字符串即可
-
-                # 4. 正确产出 Item
+                # 3. 正确产出 Item
                 yield l.load_item()            
                 
             # Crawl a new page of project listing 

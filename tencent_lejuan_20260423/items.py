@@ -31,19 +31,12 @@ class DonationItem(scrapy.Item):
 
 
 class ProjectItem(Item):
-    
+
     # 项目详细信息
     category = Field()
     project_no = Field()
     collection_time = Field()
     server = Field()
-
-
-    # download snapshot image
-    image_urls = Field()
-    images = Field()
-    image_paths = Field()
-    failed_images_count = scrapy.Field() # 下载失败的图片数量 (供后续存储使用)
 
     # details
     base = Field()
@@ -100,14 +93,6 @@ class SnapshotItem(Item):
     server = Field()
     page = Field()
     position = Field()
-    
-
-    # download snapshot image
-    image_urls = Field()
-    images = Field()
-    image_paths = Field()
-    
-    failed_images_count = scrapy.Field() # 下载失败的图片数量 (供后续存储使用)
 
 class UpdateItem(scrapy.Item):
     # --- 系统与关联信息 ---

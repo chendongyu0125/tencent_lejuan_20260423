@@ -11,10 +11,9 @@ from scrapy.loader import ItemLoader
 import socket
 from datetime import datetime
 from bs4 import BeautifulSoup
-import re
-import os 
+import os
 
-from tencent_lejuan_20260423.tools import load_crawled_projects, fix_url_scheme
+from tencent_lejuan_20260423.tools import load_crawled_projects
 from tencent_lejuan_20260423.settings import CRAWLED_PROJECTS_FILE
 
 
@@ -49,18 +48,6 @@ class LejuandetailsSpider(scrapy.Spider):
         "Referer": "https://gongyi.qq.com/",
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         'Referer': 'http://gongyi.qq.com/'
-    }
-
-    custom_settings = {
-        'ITEM_PIPELINES': {
-            'tencent_lejuan_20260423.pipelines.DetailImagesPipeline': 300,
-        }, 
-
-        # 'DOWNLOADER_MIDDLEWARES': {
-        #     'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': 1,
-        #     'scrapy.downloadermiddlewares.referer.RefererMiddleware': 2, # 确保开启
-        #     'scrapy.downloadermiddlewares.retry.RetryMiddleware': 3,      # 自动重试
-        # }
     }
 
     apiurl_projectinfo = "https://ssl.gongyi.qq.com/gygw-app/ed/project_center_query/GetProjectInfoForC"
@@ -150,73 +137,6 @@ class LejuandetailsSpider(scrapy.Spider):
     def parse(self, response):
         pass
 
-    def extract_image_urls(self, json_data):
-        '''
-        extract image urls from the description of the project
-        '''
-        data = json_data.get('data', {})
-        base_data = data.get('base', {})
-        detail_data = data.get('detail', {})
-        v3_detail = data.get('v3_detail', {})
-
-        all_image_urls = set() # 使用集合去重
-
-                
-
-
-        # 1. 提取直接字段中的图片链接
-        direct_fields = [
-            base_data.get('listImg'),
-            base_data.get('focusImg', {}).get('syn_url'),
-            base_data.get('fundImg', {}).get('syn_url'),
-            base_data.get('pUserFace', {}).get('syn_url'),
-            base_data.get('funder', {}).get('face')
-        ]
-        
-        for url in direct_fields:
-            fixed_url = fix_url_scheme(url)
-            if fixed_url:
-                all_image_urls.add(fixed_url)
-
-        # 提取列表中的图片链接
-        for img in base_data.get('img_list', []):
-            fixed_url = fix_url_scheme(img)
-            if fixed_url:
-                all_image_urls.add(fixed_url)
-
-        for img in detail_data.get('img_mob_list', []):
-            fixed_url = fix_url_scheme(img)
-            if fixed_url:
-                all_image_urls.add(fixed_url)
-
-        
-
-
-        # 2. 使用正则表达式提取富文本（HTML）中的图片链接
-        # 需要扫描包含HTML的字段，例如项目介绍、预算等
-        html_contents = [
-            base_data.get('desc', ''),
-            base_data.get('proj_budget', ''),
-            detail_data.get('desc', ''),
-            detail_data.get('proj_budget', ''),
-            detail_data.get('proj_team_info', ''),
-            v3_detail.get('backdrop', '')
-        ]
-
-        # 正则匹配 src="..." 或 src='...' 中的内容，忽略大小写
-        img_pattern = re.compile(r'<img[^>]+src=["\']([^"\']+)["\']', re.IGNORECASE)
-        
-        for content in html_contents:
-            if content:
-                found_urls = img_pattern.findall(content)
-                for url in found_urls:
-                    # 修复以 // 开头的无协议链接 (例如预算图片)
-                    fixed_url = fix_url_scheme(url)
-                    if fixed_url:
-                        all_image_urls.add(fixed_url)
-
-        return all_image_urls
-
     def parse_info(self, response):
         '''
         extract data from apiurl_info
@@ -256,12 +176,6 @@ class LejuandetailsSpider(scrapy.Spider):
             base_data = data.get('base', {})
             item['category'] = base_data.get('cateName', 'unknown')
             item['project_no'] = project_no
-
-
-            # to crawl all the images in the detailed page
-            # 图片提取
-            all_image_urls = self.extract_image_urls(json_data)
-            item['image_urls'] = [url for url in all_image_urls if url]   
 
 
             yield item

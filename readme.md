@@ -10,14 +10,22 @@
 
 ## 定时任务设置 (Crontab)
 
-本项目支持通过 `crontab` 实现月度自动化爬取。
+本项目支持通过 `crontab` 实现**每周一凌晨 0 点**自动全量爬取（不含项目更新进展和图片下载）。
 
 1. 在终端输入 `crontab -e`。
-2. 将以下脚本配置添加到文件末尾（每月 1 号凌晨 2 点运行）：
+2. 将以下配置添加到文件末尾：
 
 ```cron
-0 2 1 * * /Users/chendongyu/tencent_lejuan_20260324/run_monthly_crawl.sh >> /Users/chendongyu/tencent_lejuan_20260324/cron_log.log 2>&1
+0 0 * * 1 /Users/chendongyu/Claude/tencent_lejuan_20260423/run_weekly_crawl.sh >> /Users/chendongyu/Claude/tencent_lejuan_20260423/cron_log.log 2>&1
+```
 
+### 定时任务说明
 
-
-
+- **运行频率**：每周一凌晨 0:00
+- **爬取策略**：每次全量重新爬取（删除进度文件，获取所有项目最新数据）
+- **执行顺序**：项目快照 → 项目详情 → 捐赠统计
+- **输出文件**：以日期后缀命名，如 `lejuan_snapshot_20260706.csv`
+- **日志文件**：`cron_log.log`
+- **注意事项**：
+  - 项目更新进展（lejuanupdates）不在定时任务中执行，如需可手动运行
+  - 图片/视频数据不再下载，仅保留项目和捐赠的结构化数据
